@@ -6,7 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.src.Features.Login.presentation.view.LoginScreen
-import com.example.myapplication.src.Features.Login.presentation.view.RegisterScreen
+import com.example.myapplication.src.Features.Register.presentation.view.RegisterScreen
 import com.example.myapplication.src.Features.Home.presentation.view.HomeScreen
 import com.example.myapplication.src.Features.Task.presentation.view.CreateTaskScreen
 import com.example.myapplication.src.Features.Task.presentation.view.UpdateTaskScreen
@@ -33,7 +33,7 @@ fun AppNavigate(
                 onNavigateToRegister = {
                     navController.navigate(Routes.REGISTER)
                 },
-                onLoginClick = {
+                onLoginSuccess = {
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
@@ -45,11 +45,6 @@ fun AppNavigate(
             RegisterScreen(
                 onNavigateToLogin = {
                     navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                    }
-                },
-                onRegisterClick = {
-                    navController.navigate(Routes.HOME) {
                         popUpTo(Routes.REGISTER) { inclusive = true }
                     }
                 }
@@ -72,34 +67,21 @@ fun AppNavigate(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onSaveTask = { _, _, _, _ ->
+                onTaskCreated = {
                     navController.popBackStack()
-                },
-                onTakePhoto = {
-                },
-                onSelectPhoto = {
                 }
             )
         }
 
         composable("${Routes.UPDATE_TASK}/{taskId}") { backStackEntry ->
-            val taskId = backStackEntry.arguments?.getString("taskId")?.toIntOrNull() ?: 0
-
+            val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
             UpdateTaskScreen(
                 taskId = taskId,
-                initialTitle = "Estudiar",
-                initialDescription = "Estudiar para aprobar la materia",
-                initialDate = "30/05/2025",
-                initialPhotoUri = null,
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onUpdateTask = { id, title, description, date, photo ->
+                onTaskUpdated = {
                     navController.popBackStack()
-                },
-                onTakePhoto = {
-                },
-                onSelectPhoto = {
                 }
             )
         }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -16,15 +17,39 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.myapplication.src.Features.Login.presentation.viewModel.LoginViewModel
+import com.example.myapplication.src.Features.Login.presentation.viewModel.LoginViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit = {},
-    onLoginClick: () -> Unit = {}
+    onLoginSuccess: () -> Unit = {},
+    viewModel: LoginViewModel = viewModel(factory = LoginViewModelFactory())
 ) {
     var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
+
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val isLoginSuccessful by viewModel.isLoginSuccessful.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(isLoginSuccessful) {
+        if (isLoginSuccessful) {
+            android.widget.Toast.makeText(context, "Login exitoso", android.widget.Toast.LENGTH_SHORT).show()
+            onLoginSuccess()
+            viewModel.clearLoginSuccess()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -49,6 +74,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = correo,
                 onValueChange = { correo = it },
+                enabled = !isLoading,
                 placeholder = {
                     Text(
                         text = "Correo:",
@@ -76,6 +102,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = contrasena,
                 onValueChange = { contrasena = it },
+                enabled = !isLoading,
                 placeholder = {
                     Text(
                         text = "Contraseña:",
@@ -104,7 +131,10 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = onLoginClick,
+                onClick = {
+                    viewModel.login(correo, contrasena)
+                },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -113,12 +143,19 @@ fun LoginScreen(
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text(
-                    text = "Login",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Login",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
