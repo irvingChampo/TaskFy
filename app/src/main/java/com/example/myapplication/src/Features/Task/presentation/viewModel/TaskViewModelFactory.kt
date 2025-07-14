@@ -16,7 +16,8 @@ class TaskViewModelFactory : ViewModelProvider.Factory {
                 updateTaskUseCase = AppModule.updateTaskUseCase,
                 deleteTaskUseCase = AppModule.deleteTaskUseCase,
                 cameraRepository = AppModule.cameraRepository,
-                vibratorRepository = AppModule.vibratorRepository
+                vibratorRepository = AppModule.vibratorRepository,
+                taskRepository = AppModule.taskRepository
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

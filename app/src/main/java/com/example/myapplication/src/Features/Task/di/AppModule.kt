@@ -17,7 +17,7 @@ object AppModule {
         RetrofitHelper.getService(TaskService::class.java)
     }
 
-    private val taskRepository: TaskRepository by lazy {
+     val taskRepository: TaskRepository by lazy {
         TaskRepositoryImpl(taskService)
     }
 

@@ -19,6 +19,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import android.util.Log
+
+// ✅ CORREGIDO: Import de la interfaz (no la implementación)
+import com.example.myapplication.src.Features.Task.domain.repository.TaskRepository
 
 class TaskViewModel(
     private val getTasksUseCase: GetTasksUseCase,
@@ -27,7 +31,9 @@ class TaskViewModel(
     private val updateTaskUseCase: UpdateTaskUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase,
     private val cameraRepository: CamaraRepository,
-    private val vibratorRepository: VibratorRepository
+    private val vibratorRepository: VibratorRepository,
+    // ✅ CORREGIDO: Usar interfaz TaskRepository (no TaskRepositoryImpl)
+    private val taskRepository: TaskRepository
 ) : ViewModel() {
 
     private val _tasks = MutableStateFlow<List<TaskResponse>>(emptyList())
@@ -35,12 +41,84 @@ class TaskViewModel(
     private val _isLoading = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
     private val _operationSuccess = MutableStateFlow(false)
+    // ✅ AGREGADO: Estado para mostrar info de sincronización
+    private val _pendingTasksCount = MutableStateFlow(0)
 
     val tasks: StateFlow<List<TaskResponse>> = _tasks.asStateFlow()
     val selectedTask: StateFlow<TaskResponse?> = _selectedTask.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
     val operationSuccess: StateFlow<Boolean> = _operationSuccess.asStateFlow()
+    val pendingTasksCount: StateFlow<Int> = _pendingTasksCount.asStateFlow()
+
+    // ✅ AGREGADO: Sincronización automática al inicializar
+    init {
+        Log.d("TaskViewModel", "🚀 Inicializando TaskViewModel...")
+        syncAndLoadTasks()
+    }
+
+    // ✅ AGREGADO: Método principal de sincronización + carga
+    private fun syncAndLoadTasks() {
+        viewModelScope.launch {
+            try {
+                Log.d("TaskViewModel", "🔄 Iniciando sincronización...")
+
+                // 1. Sincronizar tareas pendientes en background
+                taskRepository.syncPendingTasks()
+
+                // 2. Actualizar contador de tareas pendientes
+                updatePendingTasksCount()
+
+                // 3. Cargar todas las tareas después de sincronizar
+                getTareas()
+
+                Log.d("TaskViewModel", "✅ Sincronización y carga completada")
+
+            } catch (e: Exception) {
+                Log.w("TaskViewModel", "⚠️ Error en sincronización inicial", e)
+                // Aún así cargar tareas desde cache
+                getTareas()
+            }
+        }
+    }
+
+    // ✅ AGREGADO: Actualizar contador de tareas pendientes
+    private suspend fun updatePendingTasksCount() {
+        try {
+            val count = taskRepository.getPendingTasksCount()
+            _pendingTasksCount.value = count
+            Log.d("TaskViewModel", "📊 Tareas pendientes: $count")
+        } catch (e: Exception) {
+            Log.e("TaskViewModel", "Error obteniendo tareas pendientes", e)
+        }
+    }
+
+    // ✅ MODIFICADO: Método público para refresh manual
+    fun refreshTasks() {
+        Log.d("TaskViewModel", "🔄 Refresh manual iniciado por usuario")
+        syncAndLoadTasks()
+    }
+
+    // ✅ AGREGADO: Método para forzar sincronización manual
+    fun forceSyncNow() {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                Log.d("TaskViewModel", "🔄 Sincronización manual forzada...")
+
+                taskRepository.syncPendingTasks()
+                updatePendingTasksCount()
+                getTareas()
+
+                Log.d("TaskViewModel", "✅ Sincronización manual completada")
+            } catch (e: Exception) {
+                Log.e("TaskViewModel", "❌ Error en sincronización manual", e)
+                _errorMessage.value = "Error en sincronización: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 
     private fun convertDateFormat(dateString: String?): String? {
         if (dateString.isNullOrBlank()) return null
@@ -122,11 +200,16 @@ class TaskViewModel(
             _errorMessage.value = null
 
             try {
+                Log.d("TaskViewModel", "📋 Cargando tareas...")
                 val response = getTasksUseCase()
 
                 if (response.isSuccessful) {
                     val responseBody = response.body()
                     _tasks.value = responseBody ?: emptyList()
+                    Log.d("TaskViewModel", "✅ ${_tasks.value.size} tareas cargadas")
+
+                    // ✅ AGREGADO: Actualizar contador después de cargar
+                    updatePendingTasksCount()
                 } else {
                     _errorMessage.value = when (response.code()) {
                         401 -> "Sesión expirada. Inicia sesión nuevamente"
@@ -134,9 +217,11 @@ class TaskViewModel(
                         500 -> "Error del servidor"
                         else -> "Error al cargar tareas: ${response.code()}"
                     }
+                    Log.e("TaskViewModel", "❌ Error cargando tareas: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Error de conexión: ${e.message}"
+                Log.e("TaskViewModel", "❌ Excepción cargando tareas", e)
             } finally {
                 _isLoading.value = false
             }
@@ -149,6 +234,7 @@ class TaskViewModel(
                 _isLoading.value = true
                 _errorMessage.value = null
 
+                Log.d("TaskViewModel", "🔍 Buscando tarea: $id")
                 val response = getTaskByIdUseCase(id)
 
                 if (response.isSuccessful) {
@@ -175,8 +261,10 @@ class TaskViewModel(
                         } else {
                             _selectedTask.value = tarea
                         }
+                        Log.d("TaskViewModel", "✅ Tarea encontrada: ${tarea.titulo}")
                     } else {
                         _errorMessage.value = "Tarea no encontrada"
+                        Log.w("TaskViewModel", "⚠️ Tarea no encontrada: $id")
                     }
                 } else {
                     _errorMessage.value = when (response.code()) {
@@ -184,9 +272,11 @@ class TaskViewModel(
                         404 -> "Tarea no encontrada"
                         else -> "Error al cargar tarea: ${response.code()}"
                     }
+                    Log.e("TaskViewModel", "❌ Error buscando tarea: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Error de conexión: ${e.message}"
+                Log.e("TaskViewModel", "❌ Excepción buscando tarea", e)
             } finally {
                 _isLoading.value = false
             }
@@ -212,6 +302,8 @@ class TaskViewModel(
             _operationSuccess.value = false
 
             try {
+                Log.d("TaskViewModel", "➕ Creando tarea: $titulo")
+
                 val base64Image = capturedPhoto?.let { file ->
                     compressImageToBase64(file)
                 }
@@ -221,8 +313,11 @@ class TaskViewModel(
                 val response = createTaskUseCase(titulo, descripcion, prioridad, estado, fechaConvertida, base64Image)
 
                 if (response.isSuccessful) {
+                    Log.d("TaskViewModel", "✅ Tarea creada: $titulo")
                     _operationSuccess.value = true
-                    getTareas()
+
+                    // ✅ MODIFICADO: Refresh completo (sync + load)
+                    refreshTasks()
                 } else {
                     val errorBody = response.errorBody()?.string()
                     _errorMessage.value = when (response.code()) {
@@ -240,11 +335,14 @@ class TaskViewModel(
                         500 -> "Error del servidor"
                         else -> "Error al crear tarea: ${response.code()}"
                     }
+                    Log.e("TaskViewModel", "❌ Error creando tarea: ${response.code()}")
                 }
             } catch (e: IllegalArgumentException) {
                 _errorMessage.value = e.message
+                Log.e("TaskViewModel", "❌ Argumento inválido", e)
             } catch (e: Exception) {
                 _errorMessage.value = "Error de conexión: ${e.message}"
+                Log.e("TaskViewModel", "❌ Excepción creando tarea", e)
             } finally {
                 _isLoading.value = false
             }
@@ -277,6 +375,8 @@ class TaskViewModel(
             _operationSuccess.value = false
 
             try {
+                Log.d("TaskViewModel", "✏️ Actualizando tarea: $titulo")
+
                 val base64Image = capturedPhoto?.let { file ->
                     compressImageToBase64(file)
                 }
@@ -300,8 +400,11 @@ class TaskViewModel(
                 )
 
                 if (response.isSuccessful) {
+                    Log.d("TaskViewModel", "✅ Tarea actualizada: $titulo")
                     _operationSuccess.value = true
-                    getTareas()
+
+                    // ✅ MODIFICADO: Refresh completo (sync + load)
+                    refreshTasks()
                 } else {
                     val errorBody = response.errorBody()?.string()
                     _errorMessage.value = when (response.code()) {
@@ -326,11 +429,14 @@ class TaskViewModel(
                         }
                         else -> "Error al actualizar tarea: ${response.code()}"
                     }
+                    Log.e("TaskViewModel", "❌ Error actualizando tarea: ${response.code()}")
                 }
             } catch (e: IllegalArgumentException) {
                 _errorMessage.value = e.message
+                Log.e("TaskViewModel", "❌ Argumento inválido", e)
             } catch (e: Exception) {
                 _errorMessage.value = "Error de conexión: ${e.message}"
+                Log.e("TaskViewModel", "❌ Excepción actualizando tarea", e)
             } finally {
                 _isLoading.value = false
             }
@@ -344,21 +450,27 @@ class TaskViewModel(
             _operationSuccess.value = false
 
             try {
+                Log.d("TaskViewModel", "🗑️ Eliminando tarea: $id")
                 val response = deleteTaskUseCase(id)
 
                 if (response.isSuccessful) {
+                    Log.d("TaskViewModel", "✅ Tarea eliminada: $id")
                     vibratorRepository.vibrateShort()
                     _operationSuccess.value = true
-                    getTareas()
+
+                    // ✅ MODIFICADO: Refresh completo (sync + load)
+                    refreshTasks()
                 } else {
                     _errorMessage.value = when (response.code()) {
                         401 -> "Sesión expirada. Inicia sesión nuevamente"
                         404 -> "Tarea no encontrada"
                         else -> "Error al eliminar tarea: ${response.code()}"
                     }
+                    Log.e("TaskViewModel", "❌ Error eliminando tarea: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Error de conexión: ${e.message}"
+                Log.e("TaskViewModel", "❌ Excepción eliminando tarea", e)
             } finally {
                 _isLoading.value = false
             }

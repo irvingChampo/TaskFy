@@ -25,4 +25,7 @@ interface TaskRepository {
         eliminarImagen: Boolean?
     ): Response<TaskResponse>
     suspend fun eliminarTarea(id: String): Response<Unit>
+    suspend fun syncPendingTasks()
+    suspend fun getPendingTasksCount(): Int
+    suspend fun getOfflineTasks(): List<TaskResponse>
 }
