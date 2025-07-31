@@ -6,7 +6,12 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
 
-interface LoginService {
+data class RegisterFCMRequest(val fcmToken: String)
+
+interface AuthService {
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
+
+    @POST("fcm/register-device")
+    suspend fun registerFCMToken(@Body request: RegisterFCMRequest): Response<Unit>
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "435480735074",
+    "project_id": "taskfy-c8561",
+    "storage_bucket": "taskfy-c8561.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:435480735074:android:0e75717f7c8325fcac903b",
+        "android_client_info": {
+          "package_name": "com.example.myapplication"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfQeGWqGDf0iRinEE7hqerNE908HNKArM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

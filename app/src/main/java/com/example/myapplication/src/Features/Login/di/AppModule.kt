@@ -2,7 +2,7 @@ package com.example.myapplication.src.Features.Login.di
 
 import com.example.myapplication.src.Core.DI.DataStoreModule
 import com.example.myapplication.src.Core.Network.RetrofitHelper
-import com.example.myapplication.src.Features.Login.data.datasource.remote.LoginService
+import com.example.myapplication.src.Features.Login.data.datasource.remote.AuthService
 import com.example.myapplication.src.Features.Login.data.repository.LoginRepositoryImpl
 import com.example.myapplication.src.Features.Login.data.repository.TokenRepositoryImpl
 import com.example.myapplication.src.Features.Login.domain.repository.LoginRepository
@@ -15,8 +15,8 @@ object AppModule {
         RetrofitHelper.init()
     }
 
-    private val loginService: LoginService by lazy {
-        RetrofitHelper.getService(LoginService::class.java)
+    private val authService: AuthService by lazy {
+        RetrofitHelper.getService(AuthService::class.java)
     }
 
     val tokenRepository: TokenRepository by lazy {
@@ -24,7 +24,7 @@ object AppModule {
     }
 
     private val repositoryLogin: LoginRepository by lazy {
-        LoginRepositoryImpl(loginService, tokenRepository)
+        LoginRepositoryImpl(authService, tokenRepository)
     }
 
     val loginUseCase: LoginUseCase by lazy {
